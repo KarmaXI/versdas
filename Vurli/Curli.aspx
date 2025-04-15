@@ -6,6 +6,7 @@
     <title>Teamverlofrooster</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://som.org.om.local/sites/MulderT/CustomPW/Verlof/CPW/Vurli/js/config.js"></script>
+    <script src="https://som.org.om.local/sites/MulderT/CustomPW/Verlof/CPW/Vurli/js/medewerkerForm.js"></script>
     <script src="https://som.org.om.local/sites/MulderT/CustomPW/Verlof/CPW/Vurli/js/CRUD.js"></script> <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
         /* Definieer fallback CSS variabelen als V2.css niet geladen is */
@@ -51,10 +52,22 @@
              background-color: var(--color-gray-100);
              background-image: linear-gradient( to bottom right, var(--color-gray-100) 0%, var(--color-gray-100) 45%, var(--color-gray-300) 50%, var(--color-gray-100) 55%, var(--color-gray-100) 100% );
         }
-        .pattern-diag-right { background-image: linear-gradient(135deg, var(--color-gray-300) 25%, transparent 25%, transparent 50%, var(--color-gray-300) 50%, var(--color-gray-300) 75%, transparent 75%, transparent 100%); background-size: 8px 8px; }
-        .pattern-diag-left { background-image: linear-gradient(45deg, var(--color-gray-300) 25%, transparent 25%, transparent 50%, var(--color-gray-300) 50%, var(--color-gray-300) 75%, transparent 75%, transparent 100%); background-size: 8px 8px; }
-        .pattern-kruis { background-image: linear-gradient(45deg, var(--color-gray-300) 25%, transparent 25%), linear-gradient(-45deg, var(--color-gray-300) 25%, transparent 25%); background-size: 8px 8px; }
-        .pattern-plus { background-image: linear-gradient(var(--color-gray-300) 1px, transparent 1px), linear-gradient(to right, var(--color-gray-300) 1px, transparent 1px); background-size: 6px 6px; }
+        .pattern-diag-right { 
+            background-image: linear-gradient(135deg, rgba(0,0,0,0.2) 25%, transparent 25%, transparent 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2) 75%, transparent 75%, transparent 100%); 
+            background-size: 8px 8px; 
+        }
+        .pattern-diag-left { 
+            background-image: linear-gradient(45deg, rgba(0,0,0,0.2) 25%, transparent 25%, transparent 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2) 75%, transparent 75%, transparent 100%); 
+            background-size: 8px 8px; 
+        }
+        .pattern-kruis { 
+            background-image: linear-gradient(45deg, rgba(0,0,0,0.2) 25%, transparent 25%), linear-gradient(-45deg, rgba(0,0,0,0.2) 25%, transparent 25%); 
+            background-size: 8px 8px; 
+        }
+        .pattern-plus { 
+            background-image: linear-gradient(rgba(0,0,0,0.2) 1px, transparent 1px), linear-gradient(to right, rgba(0,0,0,0.2) 1px, transparent 1px); 
+            background-size: 6px 6px; 
+        }
         .employee-details { display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
         .avatar { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.875rem; overflow: hidden; }
         .avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -72,6 +85,52 @@
         .edit-table .action-buttons button:hover { opacity: 0.7; }
         .edit-table tr.is-new td { background-color: var(--color-primary-light); }
 
+        /* Notification styles */
+        .notification {
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 24rem;
+            opacity: 0;
+            transform: translateY(-1rem);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .notification-success {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        .notification-error {
+            background-color: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        .notification-info {
+            background-color: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        .notification-close {
+            background: transparent;
+            border: none;
+            color: currentColor;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 0.5rem;
+            font-size: 1rem;
+            opacity: 0.6;
+        }
+        .notification-close:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -127,6 +186,7 @@
         </div>
     </div>
 
+    <div id="notification-container" class="fixed bottom-4 right-4 z-50"></div>
 
     <script>
         // --- Globale variabelen ---
@@ -188,18 +248,257 @@
         function getAvatarColor(name) { let hash = 0; for (let i = 0; i < name.length; i++) { hash = name.charCodeAt(i) + ((hash << 5) - hash); } const color = (hash & 0x00FFFFFF).toString(16).toUpperCase(); return "#" + "00000".substring(0, 6 - color.length) + color; }
         function getGuidForSection(sectionName) { switch(sectionName) { case 'Verlof': return "6ca65cc0-ad60-49c9-9ee4-371249e55c7d"; case 'Werkweek-indicaties': return "45528ed2-cdff-4958-82e4-e3eb032fd0aa"; default: return null; } }
         function getDataArrayForSection(sectionName) { switch(sectionName) { case 'Verlof': return verlofRedenen; case 'Werkweek-indicaties': return dagenIndicatoren; default: return []; } }
-        function getFieldsForSection(sectionName) { switch(sectionName) { case 'Verlof': return [ { key: 'Title', type: 'text', label: 'Naam', internalName: 'Title' }, { key: 'Kleur', type: 'color', label: 'Kleur', internalName: 'Kleur' } ]; case 'Werkweek-indicaties': return [ { key: 'Title', type: 'text', label: 'Naam', internalName: 'Title' }, { key: 'Kleur', type: 'color', label: 'Kleur', internalName: 'Kleur' }, { key: 'Patroon', type: 'readonly', label: 'Patroon', internalName: 'Patroon' } ]; default: return []; } }
+        function getFieldsForSection(sectionName) { 
+            switch(sectionName) { 
+                case 'Verlof': 
+                    return [ 
+                        { key: 'Title', type: 'text', label: 'Naam', internalName: 'Title' }, 
+                        { key: 'Kleur', type: 'color', label: 'Kleur', internalName: 'Kleur' } 
+                    ]; 
+                case 'Werkweek-indicaties': 
+                    return [ 
+                        { key: 'Title', type: 'text', label: 'Naam', internalName: 'Title' }, 
+                        { key: 'Kleur', type: 'color', label: 'Kleur', internalName: 'Kleur' }, 
+                        { key: 'Patroon', type: 'select', label: 'Patroon', internalName: 'Patroon', 
+                          options: [
+                              { value: '', label: 'Geen patroon' },
+                              { value: 'Diagonale lijn (rechts)', label: 'Diagonale lijn (rechts)' },
+                              { value: 'Diagonale lijn (links)', label: 'Diagonale lijn (links)' },
+                              { value: 'Kruis', label: 'Kruis' },
+                              { value: 'Plus', label: 'Plus' }
+                          ]
+                        } 
+                    ]; 
+                default: 
+                    return []; 
+            } 
+        }
 
         // --- WEERGAVE FUNCTIES ---
         function updatePeriodeDisplay() { /* ... ongewijzigd ... */ const jaar = huidigeDatum.getFullYear(); const maand = huidigeDatum.getMonth(); if (huidigeWeergave === 'month') { periodeDisplay.textContent = `${maandNamen[maand]} ${jaar}`; } else if (huidigeWeergave === 'week') { const startVanWeek = getStartOfWeek(huidigeDatum); const eindVanWeek = addDays(startVanWeek, 6); const d = new Date(Date.UTC(startVanWeek.getFullYear(), startVanWeek.getMonth(), startVanWeek.getDate())); const dayNum = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - dayNum); const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1)); const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7); periodeDisplay.textContent = `Week ${weekNo}: ${startVanWeek.getDate()} ${maandNamen[startVanWeek.getMonth()].substring(0,3)} - ${eindVanWeek.getDate()} ${maandNamen[eindVanWeek.getMonth()].substring(0,3)}`; } }
         function updateActiveViewButtons() { /* ... ongewijzigd ... */ if (huidigeWeergave === 'month') { btnViewMonth.classList.add('active'); btnViewWeek.classList.remove('active'); } else { btnViewWeek.classList.add('active'); btnViewMonth.classList.remove('active'); } }
-        function renderLegenda() { /* ... ongewijzigd ... */ const createLegendItem = (text, color, patternClass = '') => { const item = document.createElement('div'); item.className = 'legend-item'; const colorSpan = document.createElement('span'); colorSpan.className = `legend-color ${patternClass}`; colorSpan.style.backgroundColor = color; item.appendChild(colorSpan); const textSpan = document.createElement('span'); textSpan.textContent = text || '-'; item.appendChild(textSpan); return item; }; const getPatternClass = (patternName) => { switch(patternName) { case 'Diagonale lijn (rechts)': return 'pattern-diag-right'; case 'Diagonale lijn (links)': return 'pattern-diag-left'; case 'Kruis': return 'pattern-kruis'; case 'Plus': return 'pattern-plus'; default: return ''; } }; const fillSection = (container, title, data, textKey, colorKey, patternKey = null, sectionIdentifier) => { container.querySelectorAll('.legend-item, .text-gray-500').forEach(el => el.remove()); if (!container.querySelector('.legenda-edit-btn')) { const editBtn = document.createElement('button'); editBtn.className = 'legenda-edit-btn'; editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-fw"></i>'; editBtn.title = `Bewerk ${title}`; editBtn.dataset.section = sectionIdentifier; container.appendChild(editBtn); } if (data && data.length > 0) { data.forEach(item => { const text = item[textKey] || item['Title'] || item['Naam']; const color = item[colorKey]; const patternName = patternKey ? item[patternKey] : null; const patternClass = getPatternClass(patternName); const legendItem = createLegendItem(text, color, patternClass); if (patternClass && color) { legendItem.querySelector('.legend-color').style.backgroundColor = 'transparent'; } container.appendChild(legendItem); }); } else { const noDataItem = document.createElement('div'); noDataItem.className = 'legend-item text-gray-500 italic'; noDataItem.textContent = `Kon ${title.toLowerCase()} niet laden.`; container.appendChild(noDataItem); } }; fillSection(legendaVerlof, "Verlof", verlofRedenen, "Title", "Kleur", null, "Verlof"); fillSection(legendaWerkweek, "Werkweek-indicaties", dagenIndicatoren, "Title", "Kleur", "Patroon", "Werkweek-indicaties"); legendaTerugkerend.querySelectorAll('.legend-item').forEach(el => el.remove()); if (!legendaTerugkerend.querySelector('.legenda-edit-btn')) { const editBtn = document.createElement('button'); editBtn.className = 'legenda-edit-btn'; editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-fw"></i>'; editBtn.title = `Bewerk Terugkerende zaken`; editBtn.dataset.section = "Terugkerende zaken"; legendaTerugkerend.appendChild(editBtn); } legendaTerugkerend.appendChild(createLegendItem('Weekend', '', 'weekend-pattern')); legendaBijzonderheden.querySelectorAll('.legend-item').forEach(el => el.remove()); if (!legendaBijzonderheden.querySelector('.legenda-edit-btn')) { const editBtn = document.createElement('button'); editBtn.className = 'legenda-edit-btn'; editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-fw"></i>'; editBtn.title = `Bewerk Bijzonderheden`; editBtn.dataset.section = "Bijzonderheden"; legendaBijzonderheden.appendChild(editBtn); } if (legendaBijzonderheden.querySelectorAll('.legend-item').length === 0) { const noDataItem = document.createElement('div'); noDataItem.className = 'legend-item text-gray-500 italic'; noDataItem.textContent = 'Geen items.'; legendaBijzonderheden.appendChild(noDataItem); } }
+        function renderLegenda() { /* ... ongewijzigd ... */ const createLegendItem = (text, color, patternClass = '') => { const item = document.createElement('div'); item.className = 'legend-item'; const colorSpan = document.createElement('span'); colorSpan.className = `legend-color ${patternClass}`; colorSpan.style.backgroundColor = color; item.appendChild(colorSpan); const textSpan = document.createElement('span'); textSpan.textContent = text || '-'; item.appendChild(textSpan); return item; }; const getPatternClass = (patternName) => { switch(patternName) { case 'Diagonale lijn (rechts)': return 'pattern-diag-right'; case 'Diagonale lijn (links)': return 'pattern-diag-left'; case 'Kruis': return 'pattern-kruis'; case 'Plus': return 'pattern-plus'; default: return ''; } }; const fillSection = (container, title, data, textKey, colorKey, patternKey = null, sectionIdentifier) => { container.querySelectorAll('.legend-item, .text-gray-500').forEach(el => el.remove()); if (!container.querySelector('.legenda-edit-btn')) { const editBtn = document.createElement('button'); editBtn.className = 'legenda-edit-btn'; editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-fw"></i>'; editBtn.title = `Bewerk ${title}`; editBtn.dataset.section = sectionIdentifier; container.appendChild(editBtn); } if (data && data.length > 0) { data.forEach(item => { const text = item[textKey] || item['Title'] || item['Naam']; const color = item[colorKey]; const patternName = patternKey ? item[patternKey] : null; const patternClass = getPatternClass(patternName); const legendItem = createLegendItem(text, color, patternClass); if (patternClass && color) { const colorSpan = legendItem.querySelector('.legend-color'); colorSpan.style.backgroundColor = color; colorSpan.style.backgroundImage = colorSpan.style.backgroundImage; } container.appendChild(legendItem); }); } else { const noDataItem = document.createElement('div'); noDataItem.className = 'legend-item text-gray-500 italic'; noDataItem.textContent = `Kon ${title.toLowerCase()} niet laden.`; container.appendChild(noDataItem); } }; fillSection(legendaVerlof, "Verlof", verlofRedenen, "Title", "Kleur", null, "Verlof"); fillSection(legendaWerkweek, "Werkweek-indicaties", dagenIndicatoren, "Title", "Kleur", "Patroon", "Werkweek-indicaties"); legendaTerugkerend.querySelectorAll('.legend-item').forEach(el => el.remove()); if (!legendaTerugkerend.querySelector('.legenda-edit-btn')) { const editBtn = document.createElement('button'); editBtn.className = 'legenda-edit-btn'; editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-fw"></i>'; editBtn.title = `Bewerk Terugkerende zaken`; editBtn.dataset.section = "Terugkerende zaken"; legendaTerugkerend.appendChild(editBtn); } legendaTerugkerend.appendChild(createLegendItem('Weekend', '', 'weekend-pattern')); legendaBijzonderheden.querySelectorAll('.legend-item').forEach(el => el.remove()); if (!legendaBijzonderheden.querySelector('.legenda-edit-btn')) { const editBtn = document.createElement('button'); editBtn.className = 'legenda-edit-btn'; editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-fw"></i>'; editBtn.title = `Bewerk Bijzonderheden`; editBtn.dataset.section = "Bijzonderheden"; legendaBijzonderheden.appendChild(editBtn); } if (legendaBijzonderheden.querySelectorAll('.legend-item').length === 0) { const noDataItem = document.createElement('div'); noDataItem.className = 'legend-item text-gray-500 italic'; noDataItem.textContent = 'Geen items.'; legendaBijzonderheden.appendChild(noDataItem); } }
         async function renderRooster() { /* ... ongewijzigd ... */ console.log(`Render ${huidigeWeergave} view`); const jaar = huidigeDatum.getFullYear(); const maand = huidigeDatum.getMonth(); const vandaag = new Date(); let viewStartDate, viewEndDate, dataStartDate, dataEndDate; let dagenInWeergave = []; if (huidigeWeergave === 'month') { const eersteDagVanMaand = new Date(jaar, maand, 1); let startDagIndex = eersteDagVanMaand.getDay(); startDagIndex = startDagIndex === 0 ? 6 : startDagIndex - 1; viewStartDate = addDays(eersteDagVanMaand, -startDagIndex); viewEndDate = addDays(viewStartDate, 41); dataStartDate = addDays(viewStartDate, -7); dataEndDate = addDays(viewEndDate, 7); for (let i = 0; i < 42; i++) { dagenInWeergave.push(addDays(viewStartDate, i)); } } else { viewStartDate = getStartOfWeek(huidigeDatum); viewEndDate = addDays(viewStartDate, 6); dagenInWeergave = []; for (let i = 0; i < 7; i++) { dagenInWeergave.push(addDays(viewStartDate, i)); } dataStartDate = viewStartDate; dataEndDate = viewEndDate; } await haalVerlofOp(dataStartDate, dataEndDate); const zoekTerm = searchInput.value.toLowerCase(); const geselecteerdTeam = teamSelect.value; const gefilterdeMedewerkers = medewerkers.filter(m => { const naamMatch = (m.displayNameFromProfile || m.Naam)?.toLowerCase().includes(zoekTerm); const teamMatch = geselecteerdTeam === 'all' || m.Team === geselecteerdTeam; return naamMatch && teamMatch; }); const thead = roosterTabel.querySelector('thead'); thead.innerHTML = ''; const headerRow = document.createElement('tr'); const thEmployee = document.createElement('th'); thEmployee.className = 'employee-col'; thEmployee.textContent = 'Medewerker'; headerRow.appendChild(thEmployee); dagenInWeergave.forEach(dag => { const thDay = document.createElement('th'); const dagVanWeek = dag.getDay(); const isWeekend = dagVanWeek === 0 || dagVanWeek === 6; const isVandaag = isSameDay(dag, vandaag); thDay.className = 'day-header'; if (isWeekend) thDay.classList.add('weekend'); if (isVandaag) thDay.classList.add('today'); if (huidigeWeergave === 'month' && dag.getMonth() !== maand) { thDay.classList.add('other-month-header', 'opacity-50'); } thDay.innerHTML = `<span class="day-header-abbr">${dagNamenKort[dagVanWeek]}</span><span class="day-header-date">${dag.getDate()}</span>`; headerRow.appendChild(thDay); }); thead.appendChild(headerRow); const tbody = roosterTabel.querySelector('tbody'); tbody.innerHTML = ''; if (gefilterdeMedewerkers.length === 0) { tbody.innerHTML = `<tr><td colspan="${dagenInWeergave.length + 1}" class="text-center p-5 text-gray-500">Geen medewerkers gevonden...</td></tr>`; } gefilterdeMedewerkers.forEach(medewerker => { const medewerkerRow = document.createElement('tr'); const tdEmployee = document.createElement('td'); tdEmployee.className = 'employee-col'; const email = medewerker.emailFromProfile || medewerker['E_x002d_mail'] || ''; const medewerkerNaam = medewerker.displayNameFromProfile || medewerker.Naam || 'Onbekende Medewerker'; const mobielNummer = medewerker.mobilePhone || '-'; const profielFotoUrl = medewerker.pictureUrl; const initials = getInitials(medewerkerNaam); const avatarColor = getAvatarColor(medewerkerNaam); const tooltipText = `E-mail: ${email || '-'}\nMobiel: ${mobielNummer}`; tdEmployee.innerHTML = ` <div class="employee-info flex items-center gap-2 h-full" title="${tooltipText}"> <div class="avatar" style="background-color: ${avatarColor};"> ${profielFotoUrl ? `<img src="${profielFotoUrl}" alt="Foto van ${medewerkerNaam}" class="w-full h-full object-cover" onerror="this.onerror=null; this.outerHTML = '<div class=\\'avatar-initials\\'>${initials}</div>'; ">` : `<div class="avatar-initials">${initials}</div>`} </div> <div class="employee-details flex-grow"> <span class="employee-name block text-sm font-medium text-gray-800 truncate" title="${medewerkerNaam}">${medewerkerNaam}</span> </div> </div> `; medewerkerRow.appendChild(tdEmployee); dagenInWeergave.forEach(dag => { const tdDay = document.createElement('td'); const dagVanWeek = dag.getDay(); const isWeekend = dagVanWeek === 0 || dagVanWeek === 6; const isVandaag = isSameDay(dag, vandaag); const isAndereMaand = huidigeWeergave === 'month' && dag.getMonth() !== maand; tdDay.className = 'day-cell'; if (isWeekend) tdDay.classList.add('weekend'); if (isVandaag) tdDay.classList.add('today'); if (isAndereMaand) tdDay.classList.add('other-month'); const dagIsoString = dag.toISOString().split('T')[0]; verlofData.forEach(verlofItem => { const verlofMedewerkerId = typeof verlofItem.MedewerkerId === 'object' ? verlofItem.MedewerkerId.Id : verlofItem.MedewerkerId || verlofItem.MedewerkerID; if (String(verlofMedewerkerId) === String(medewerker.ID)) { if (dagIsoString >= verlofItem.StartDatum && dagIsoString <= verlofItem.EindDatum) { const indicator = document.createElement('div'); indicator.className = 'leave-indicator-bg'; const redenText = verlofItem.Reden || 'Onbekend'; indicator.style.backgroundColor = getKleurVoorVerlofReden(redenText); indicator.title = `${redenText} (${new Date(verlofItem.StartDatum+'T00:00:00').toLocaleDateString()} - ${new Date(verlofItem.EindDatum+'T00:00:00').toLocaleDateString()})`; tdDay.appendChild(indicator); } } }); medewerkerRow.appendChild(tdDay); }); tbody.appendChild(medewerkerRow); }); updatePeriodeDisplay(); updateActiveViewButtons(); }
 
         // --- Navigatie Functies ---
         function showMainView() { mainView.classList.remove('hidden'); editSectionView.classList.add('hidden'); huidigeEditSectie = null; }
-        function showEditSectionView(sectionName) { /* ... ongewijzigd ... */ huidigeEditSectie = sectionName; mainView.classList.add('hidden'); editSectionView.classList.remove('hidden'); editSectionTitle.textContent = `Bewerk Legenda: ${sectionName}`; editSectionContent.innerHTML = '<p class="p-4 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Tabel laden...</p>'; const dataArray = getDataArrayForSection(sectionName); const fields = getFieldsForSection(sectionName); const headers = [...fields.map(f => f.label), "Acties"]; const table = document.createElement('table'); table.className = 'edit-table min-w-full'; const thead = table.createTHead(); const headerRow = thead.insertRow(); headers.forEach(headerText => { const th = document.createElement('th'); th.textContent = headerText; headerRow.appendChild(th); }); const tbody = table.createTBody(); tbody.id = 'edit-table-body'; if (dataArray && dataArray.length > 0) { dataArray.forEach(item => { const row = tbody.insertRow(); row.dataset.itemId = item.ID; fields.forEach(field => { const cell = row.insertCell(); const value = item[field.internalName || field.key] || ''; if (field.type === 'readonly') { cell.textContent = value || '-'; } else { const input = document.createElement('input'); input.type = field.type; input.name = field.internalName || field.key; input.value = value; input.className = 'border border-gray-300 rounded px-2 py-1 w-full'; if (field.type === 'color') { input.style.height = '34px'; input.style.padding = '2px'; input.value = value.startsWith('#') ? value : '#ffffff'; } cell.appendChild(input); } }); const actionCell = row.insertCell(); actionCell.className = 'action-buttons whitespace-nowrap'; actionCell.innerHTML = ` <button class="btn-save-item text-green-600 hover:text-green-800" title="Opslaan"> <i class="fas fa-save fa-fw"></i> Opslaan </button> <button class="btn-delete-item text-red-600 hover:text-red-800" title="Verwijderen"> <i class="fas fa-trash-alt fa-fw"></i> Verwijderen </button> `; }); } else { const row = tbody.insertRow(); const cell = row.insertCell(); cell.colSpan = headers.length; cell.textContent = 'Geen items gevonden in deze sectie.'; cell.className = 'text-center text-gray-500 italic py-4'; } editSectionContent.innerHTML = ''; editSectionContent.appendChild(table); }
-        function voegNieuweRijToeAanEditTabel() { /* ... ongewijzigd ... */ const sectionName = huidigeEditSectie; if (!sectionName) return; const fields = getFieldsForSection(sectionName); const tableBody = document.getElementById('edit-table-body'); if (!tableBody) return; const newRow = tableBody.insertRow(0); newRow.dataset.itemId = "new"; newRow.classList.add('is-new'); fields.forEach(field => { const cell = newRow.insertCell(); if (field.type === 'readonly') { cell.textContent = '-'; } else { const input = document.createElement('input'); input.type = field.type; input.name = field.internalName || field.key; input.placeholder = field.label; input.className = 'border border-gray-300 rounded px-2 py-1 w-full'; if (field.type === 'color') { input.style.height = '34px'; input.style.padding = '2px'; input.value = '#cccccc'; } cell.appendChild(input); } }); const actionCell = newRow.insertCell(); actionCell.className = 'action-buttons whitespace-nowrap'; actionCell.innerHTML = ` <button class="btn-save-new-item text-green-600 hover:text-green-800" title="Opslaan"> <i class="fas fa-save fa-fw"></i> Opslaan </button> <button class="btn-cancel-new-item text-gray-600 hover:text-gray-800" title="Annuleren"> <i class="fas fa-times fa-fw"></i> Annuleren </button> `; }
+        function showEditSectionView(sectionName) {
+    huidigeEditSectie = sectionName;
+    mainView.classList.add('hidden');
+    editSectionView.classList.remove('hidden');
+    editSectionTitle.textContent = `Bewerk Legenda: ${sectionName}`;
+    editSectionContent.innerHTML = '<p class="p-4 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Tabel laden...</p>';
+
+    const dataArray = getDataArrayForSection(sectionName);
+    const fields = getFieldsForSection(sectionName);
+    const headers = [...fields.map(f => f.label), "Acties"];
+
+    const table = document.createElement('table');
+    table.className = 'edit-table min-w-full';
+    
+    const thead = table.createTHead();
+    const headerRow = thead.insertRow();
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+
+    const tbody = table.createTBody();
+    tbody.id = 'edit-table-body';
+
+    if (dataArray && dataArray.length > 0) {
+        dataArray.forEach(item => {
+            const row = tbody.insertRow();
+            row.dataset.itemId = item.ID;
+            
+            fields.forEach(field => {
+                const cell = row.insertCell();
+                const value = item[field.internalName || field.key] || '';
+                
+                if (field.type === 'readonly') {
+                    cell.textContent = value || '-';
+                } else if (field.type === 'select') {
+                    const select = document.createElement('select');
+                    select.name = field.internalName || field.key;
+                    select.className = 'border border-gray-300 rounded px-2 py-1 w-full';
+                    
+                    field.options.forEach(option => {
+                        const optEl = document.createElement('option');
+                        optEl.value = option.value;
+                        optEl.textContent = option.label;
+                        if (value === option.value) {
+                            optEl.selected = true;
+                        }
+                        select.appendChild(optEl);
+                    });
+                    
+                    cell.appendChild(select);
+                } else {
+                    const input = document.createElement('input');
+                    input.type = field.type;
+                    input.name = field.internalName || field.key;
+                    input.value = value;
+                    input.className = 'border border-gray-300 rounded px-2 py-1 w-full';
+                    
+                    if (field.type === 'color') {
+                        input.style.height = '34px';
+                        input.style.padding = '2px';
+                        input.value = value.startsWith('#') ? value : '#ffffff';
+                    }
+                    
+                    cell.appendChild(input);
+                }
+            });
+
+            const actionCell = row.insertCell();
+            actionCell.className = 'action-buttons whitespace-nowrap';
+            actionCell.innerHTML = `
+                <button class="btn-save-item text-green-600 hover:text-green-800" title="Opslaan">
+                    <i class="fas fa-save fa-fw"></i> Opslaan
+                </button>
+                <button class="btn-delete-item text-red-600 hover:text-red-800" title="Verwijderen">
+                    <i class="fas fa-trash-alt fa-fw"></i> Verwijderen
+                </button>
+            `;
+        });
+    } else {
+        const row = tbody.insertRow();
+        const cell = row.insertCell();
+        cell.colSpan = headers.length;
+        cell.textContent = 'Geen items gevonden in deze sectie.';
+        cell.className = 'text-center text-gray-500 italic py-4';
+    }
+
+    editSectionContent.innerHTML = '';
+    editSectionContent.appendChild(table);
+}
+        function voegNieuweRijToeAanEditTabel() {
+    const sectionName = huidigeEditSectie;
+    if (!sectionName) return;
+    
+    const fields = getFieldsForSection(sectionName);
+    const tableBody = document.getElementById('edit-table-body');
+    if (!tableBody) return;
+    
+    const newRow = tableBody.insertRow(0);
+    newRow.dataset.itemId = "new";
+    newRow.classList.add('is-new');
+    
+    fields.forEach(field => {
+        const cell = newRow.insertCell();
+        
+        if (field.type === 'readonly') {
+            cell.textContent = '-';
+        } else if (field.type === 'select') {
+            const select = document.createElement('select');
+            select.name = field.internalName || field.key;
+            select.className = 'border border-gray-300 rounded px-2 py-1 w-full';
+            select.placeholder = field.label;
+            
+            field.options.forEach(option => {
+                const optEl = document.createElement('option');
+                optEl.value = option.value;
+                optEl.textContent = option.label;
+                select.appendChild(optEl);
+            });
+            
+            cell.appendChild(select);
+        } else {
+            const input = document.createElement('input');
+            input.type = field.type;
+            input.name = field.internalName || field.key;
+            input.placeholder = field.label;
+            input.className = 'border border-gray-300 rounded px-2 py-1 w-full';
+            
+            if (field.type === 'color') {
+                input.style.height = '34px';
+                input.style.padding = '2px';
+                input.value = '#cccccc';
+            }
+            
+            cell.appendChild(input);
+        }
+    });
+    
+    const actionCell = newRow.insertCell();
+    actionCell.className = 'action-buttons whitespace-nowrap';
+    actionCell.innerHTML = `
+        <button class="btn-save-new-item text-green-600 hover:text-green-800" title="Opslaan">
+            <i class="fas fa-save fa-fw"></i> Opslaan
+        </button>
+        <button class="btn-cancel-new-item text-gray-600 hover:text-gray-800" title="Annuleren">
+            <i class="fas fa-times fa-fw"></i> Annuleren
+        </button>
+    `;
+}
+
+        // --- NOTIFICATION FUNCTIONS ---
+        function showNotification(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            
+            // Create notification content
+            const content = document.createElement('div');
+            content.className = 'notification-content';
+            
+            // Add appropriate icon based on type
+            let icon = 'info-circle';
+            if (type === 'success') icon = 'check-circle';
+            if (type === 'error') icon = 'exclamation-circle';
+            
+            content.innerHTML = `<i class="fas fa-${icon} mr-2"></i> ${message}`;
+            notification.appendChild(content);
+            
+            // Add close button
+            const closeButton = document.createElement('button');
+            closeButton.className = 'notification-close';
+            closeButton.innerHTML = '<i class="fas fa-times"></i>';
+            closeButton.addEventListener('click', () => {
+                removeNotification(notification);
+            });
+            notification.appendChild(closeButton);
+            
+            // Add to container
+            container.appendChild(notification);
+            
+            // Trigger animation after being added to DOM
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+            
+            // Auto-dismiss after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    removeNotification(notification);
+                }, duration);
+            }
+            
+            return notification;
+        }
+
+        function removeNotification(notification) {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300); // Match transition duration
+        }
+
+        // Add this function before initialiseerVerlofrooster
+        async function refreshLegendaData(sectionName) {
+            try {
+                if (sectionName === 'Verlof') {
+                    await haalVerlofRedenenOp();
+                } else if (sectionName === 'Werkweek-indicaties') {
+                    await haalDagenIndicatorenOp();
+                }
+                renderLegenda();
+            } catch (error) {
+                console.error(`Fout bij vernieuwen legenda data voor ${sectionName}:`, error);
+                showNotification(`Fout bij vernieuwen data: ${error.message}`, 'error');
+            }
+        }
 
         // --- INITIALISATIE ---
         async function initialiseerVerlofrooster() {
@@ -251,27 +550,28 @@
                                  else { input.classList.remove('border-red-500'); }
                              }
                         });
-                        if (!isValid) { alert("Vul a.u.b. alle verplichte velden in (bv. Naam)."); saveButton.disabled = false; saveButton.innerHTML = '<i class="fas fa-save fa-fw"></i> Opslaan'; return; }
+                        if (!isValid) { showNotification("Vul a.u.b. alle verplichte velden in (bv. Naam).", "error"); saveButton.disabled = false; saveButton.innerHTML = '<i class="fas fa-save fa-fw"></i> Opslaan'; return; }
                         try {
                             // Gebruik de functie uit CRUD.js (ervan uitgaande dat CRUD.js geladen is)
                             await updateLegendaItem(lijstGuid, itemId, itemData);
-                            alert('Item succesvol bijgewerkt!');
+                            showNotification('Item succesvol bijgewerkt!', 'success');
                             if (huidigeEditSectie === 'Verlof') await haalVerlofRedenenOp();
                             if (huidigeEditSectie === 'Werkweek-indicaties') await haalDagenIndicatorenOp();
                             showEditSectionView(huidigeEditSectie);
-                        } catch (error) { console.error("Fout bij opslaan:", error); alert(`Fout bij opslaan: ${error.message}`); saveButton.disabled = false; saveButton.innerHTML = '<i class="fas fa-save fa-fw"></i> Opslaan'; }
+                        } catch (error) { console.error("Fout bij opslaan:", error); showNotification(`Fout bij opslaan: ${error.message}`, 'error'); saveButton.disabled = false; saveButton.innerHTML = '<i class="fas fa-save fa-fw"></i> Opslaan'; }
                     }
 
                     // --- Verwijderen item ---
                     if (deleteButton && itemId !== 'new') {
-                         if (confirm(`Weet je zeker dat je dit item (ID: ${itemId}) wilt verwijderen?`)) {
+                        // This line should remain a confirmation dialog
+                        if (confirm(`Weet je zeker dat je dit item (ID: ${itemId}) wilt verwijderen?`)) {
                              deleteButton.disabled = true; deleteButton.innerHTML = '<i class="fas fa-spinner fa-spin fa-fw"></i>';
                              try {
                                  await verwijderLegendaItem(lijstGuid, itemId);
-                                 alert('Item succesvol verwijderd!'); row.remove();
+                                 showNotification('Item succesvol verwijderd!', 'success'); row.remove();
                                  if (huidigeEditSectie === 'Verlof') await haalVerlofRedenenOp();
                                  if (huidigeEditSectie === 'Werkweek-indicaties') await haalDagenIndicatorenOp();
-                             } catch (error) { console.error("Fout bij verwijderen:", error); alert(`Fout bij verwijderen: ${error.message}`); deleteButton.disabled = false; deleteButton.innerHTML = '<i class="fas fa-trash-alt fa-fw"></i> Verwijderen'; }
+                             } catch (error) { console.error("Fout bij verwijderen:", error); showNotification(`Fout bij verwijderen: ${error.message}`, 'error'); deleteButton.disabled = false; deleteButton.innerHTML = '<i class="fas fa-trash-alt fa-fw"></i> Verwijderen'; }
                          }
                     }
 
@@ -287,14 +587,14 @@
                                  else { input.classList.remove('border-red-500'); }
                              }
                         });
-                        if (!isValid) { alert("Vul a.u.b. alle verplichte velden in (bv. Naam)."); saveNewButton.disabled = false; saveNewButton.innerHTML = '<i class="fas fa-save fa-fw"></i> Opslaan'; return; }
+                        if (!isValid) { showNotification("Vul a.u.b. alle verplichte velden in (bv. Naam).", "error"); saveNewButton.disabled = false; saveNewButton.innerHTML = '<i class="fas fa-save fa-fw"></i> Opslaan'; return; }
                         try {
                             const nieuwItem = await voegLegendaItemToe(lijstGuid, itemData);
-                            alert('Nieuw item succesvol toegevoegd!');
+                            showNotification('Nieuw item succesvol toegevoegd!', 'success');
                             if (huidigeEditSectie === 'Verlof') await haalVerlofRedenenOp();
                             if (huidigeEditSectie === 'Werkweek-indicaties') await haalDagenIndicatorenOp();
                             showEditSectionView(huidigeEditSectie);
-                        } catch (error) { console.error("Fout bij toevoegen:", error); alert(`Fout bij toevoegen: ${error.message}`); saveNewButton.disabled = false; saveNewButton.innerHTML = '<i class="fas fa-save fa-fw"></i> Opslaan'; }
+                        } catch (error) { console.error("Fout bij toevoegen:", error); showNotification(`Fout bij toevoegen: ${error.message}`, 'error'); saveNewButton.disabled = false; saveNewButton.innerHTML = '<i class="fas fa-save fa-fw"></i> Opslaan'; }
                     }
 
                      // --- Annuleren nieuw item ---
