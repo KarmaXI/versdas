@@ -161,6 +161,71 @@ function voegItemToe(siteUrl, lijstNaam, itemData, lijstItemEntityType) {
 
 
 /**
+ * Voert een POST-verzoek uit om een nieuw item aan een SharePoint-lijst toe te voegen via de lijst GUID.
+ * @param {string} siteUrl - De absolute URL van de doel SharePoint site.
+ * @param {string} listGuid - De GUID van de SharePoint-lijst.
+ * @param {object} itemData - Een object met de kolomnamen (interne namen!) en waarden.
+ * @param {string} lijstItemEntityType - De exacte ListItemEntityTypeFullName (vereist!).
+ * @returns {Promise<object>} Een Promise die wordt opgelost met de data van het nieuw aangemaakte item.
+ * @throws {Error} Als siteUrl, listGuid of lijstItemEntityType niet is opgegeven.
+ */
+function voegItemToeMetGuid(siteUrl, listGuid, itemData, lijstItemEntityType) {
+    if (!siteUrl) { return Promise.reject(new Error("Site URL is vereist voor voegItemToeMetGuid.")); }
+    if (!listGuid) { return Promise.reject(new Error("List GUID is vereist voor voegItemToeMetGuid.")); }
+    if (!lijstItemEntityType) { return Promise.reject(new Error(`ListItemEntityType is vereist voor het toevoegen aan lijst met GUID '${listGuid}'.`)); }
+
+    const dataVoorVerzoek = { ...itemData, __metadata: { 'type': lijstItemEntityType } };
+    const lijstItemsUrl = `${siteUrl.replace(/\/$/, '')}/_api/web/lists(guid'${listGuid}')/items`;
+
+    // Haal eerst de Request Digest voor de *doel site* op.
+    return verkrijgRequestDigestVoorSite(siteUrl)
+        .then(requestDigest => {
+            console.log(`Voorbereiden POST-verzoek (via GUID) naar: ${lijstItemsUrl}`);
+            return fetch(lijstItemsUrl, {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json;odata=verbose",
+                    "Content-Type": "application/json;odata=verbose",
+                    "X-RequestDigest": requestDigest,
+                    "If-Match": "*" // Soms nodig, kan meestal geen kwaad
+                },
+                body: JSON.stringify(dataVoorVerzoek)
+            });
+        })
+        .then(antwoord => {
+            // Succes is meestal 201 Created, maar soms retourneert SP 200 OK of 204 No Content
+            if (!antwoord.ok) {
+                 return antwoord.json().catch(() => {
+                    throw new Error(`HTTP fout ${antwoord.status} bij POST (GUID) naar ${lijstItemsUrl}`);
+                 }).then(foutData => {
+                    let foutMelding = `HTTP fout ${antwoord.status} bij POST (GUID) naar lijst '${listGuid}' op ${siteUrl}`;
+                    if (foutData && foutData.error && foutData.error.message && foutData.error.message.value) {
+                       foutMelding += ` - ${foutData.error.message.value}`;
+                    }
+                    throw new Error(foutMelding);
+                });
+            }
+            console.log(`POST-verzoek (GUID) succesvol (Status: ${antwoord.status}).`);
+            // Handel 'No Content' af
+            if (antwoord.status === 204 || antwoord.headers.get("content-length") === "0") {
+                return { success: true, status: antwoord.status }; // Geef een succes object terug
+            }
+            return antwoord.json(); // Parse JSON voor 201 of 200
+        })
+        .then(data => {
+            console.log("Nieuw item succesvol toegevoegd (via GUID):", data.d || data);
+            return data; // Retourneer het volledige antwoord
+        })
+        .catch(fout => {
+            console.error(`Fout tijdens POST-operatie (via GUID) naar lijst '${listGuid}' op ${siteUrl}:`, fout);
+            // Optioneel: Toon hier ook een notificatie?
+            // showNotification(`Kon item niet toevoegen (GUID: ${listGuid}): ${fout.message}`, 'error');
+            throw fout;
+        });
+}
+
+
+/**
  * Voert een MERGE-verzoek uit om een bestaand item in een SharePoint-lijst bij te werken op een specifieke site.
  * @param {string} siteUrl - De absolute URL van de doel SharePoint site.
  * @param {string} lijstNaam - De titel van de SharePoint-lijst.
